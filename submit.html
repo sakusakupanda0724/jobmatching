@@ -166,6 +166,10 @@
 
     const fd = new FormData(e.target);
     const payload = Object.fromEntries(fd.entries());
+
+
+    // ★追加：ファイル入力はDBに送らない
+    delete payload.images;
     payload.status = "pending";
 
     // 画像ファイルを取り出す（FormDataのentriesにはファイルが入りにくいので別取得）
@@ -209,6 +213,7 @@
 
 </body>
 </html>
+
 
 
 
