@@ -112,18 +112,29 @@
             ${it.reward ? `<span>🎁 ${escapeHtml(it.reward)}</span>` : ""}
           </div>
         `;
+        const imagesHtml = (it.image_urls && it.image_urls.length)
+          ? `<div style="margin-top:10px; display:flex; gap:8px; flex-wrap:wrap;">
+              ${it.image_urls.slice(0,2).map(u => `
+                <a href="${u}" target="_blank" rel="noreferrer">
+                  <img src="${u}" alt="image" style="width:140px; height:100px; object-fit:cover; border-radius:10px; border:1px solid #e5e7eb;" />
+                </a>
+              `).join("")}
+             </div>`
+          : "";
 
         const card = document.createElement("div");
         card.className = "card";
-        card.innerHTML = `
-          ${meta}
-          <div class="title">${escapeHtml(it.title)}</div>
-          ${extra}
-          <div class="body">${escapeHtml(it.body)}</div>
-          <div class="meta" style="margin-top:10px;">
-            <span class="tag">連絡</span><span>${escapeHtml(it.contact)}</span>
-          </div>
-        `;
+       card.innerHTML = `
+  ${meta}
+  <div class="title">${escapeHtml(it.title)}</div>
+  ${extra}
+  <div class="body">${escapeHtml(it.body)}</div>
+  ${imagesHtml}
+  <div class="meta" style="margin-top:10px;">
+    <span class="tag">連絡</span><span>${escapeHtml(it.contact)}</span>
+  </div>
+`;
+
         list.appendChild(card);
       }
     }
@@ -154,4 +165,5 @@
   </script>
 </body>
 </html>
+
 
