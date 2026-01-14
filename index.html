@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Spoon軽作業掲示板</title>
+  <style>
+    body { font-family: system-ui, -apple-system, sans-serif; margin: 0; background:#f6f7f8; color:#111; }
+    header { padding: 18px 16px; background: white; border-bottom: 1px solid #e5e7eb; position: sticky; top:0; }
+    .wrap { max-width: 900px; margin: 0 auto; padding: 16px; }
+    .sub { color:#666; font-size: 13px; line-height: 1.4; }
+    .bar { display:flex; gap:8px; flex-wrap:wrap; margin-top: 10px; }
+    select, input { padding: 10px 12px; border:1px solid #ddd; border-radius: 10px; background:white; }
+    a.btn { display:inline-block; padding:10px 12px; border-radius: 10px; border:1px solid #111; text-decoration:none; color:#111; }
+    .grid { display:grid; gap: 10px; grid-template-columns: 1fr; }
+    @media (min-width: 760px){ .grid { grid-template-columns: 1fr 1fr; } }
+    .card { background:white; border:1px solid #e5e7eb; border-radius: 14px; padding: 12px; }
+    .tag { display:inline-block; font-size: 12px; padding: 4px 8px; border-radius: 999px; border:1px solid #e5e7eb; color:#444; margin-right:6px; }
+    .title { font-weight: 700; margin: 6px 0 8px; }
+    .meta { font-size: 12px; color:#666; display:flex; gap:8px; flex-wrap:wrap; }
+    .body { white-space: pre-wrap; line-height: 1.5; margin-top: 8px; }
+    .muted { color:#666; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="wrap">
+      <div style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
+        <div>
+          <div style="font-weight:800;">Spoon軽作業掲示板</div>
+          <div class="sub">
+            Spoon配信者向け：背景画像・音源編集・配信マネージャー等の「軽いお願い／軽いお手伝い」を置く場所。<br>
+            ※掲載は管理人（あなた）が確認してから公開されます。
+          </div>
+        </div>
+        <div>
+          <a class="btn" href="./submit.html">掲載依頼を送る</a>
+        </div>
+      </div>
+
+      <div class="bar">
+        <select id="kind">
+          <option value="all">すべて</option>
+          <option value="offer">お手伝いできます</option>
+          <option value="request">人を探しています</option>
+        </select>
+        <input id="q" placeholder="キーワード検索（例：音源、画像、マネージャー）" size="34" />
+      </div>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <div id="status" class="muted" style="margin: 6px 0 10px;">読み込み中…</div>
+    <div id="list" class="grid"></div>
+  </main>
+
+  <script>
+    // ▼▼ ここを自分のSupabase情報に置き換え ▼▼
+    const SUPABASE_URL = "https://brirrkusnekpkcceioer.supabase.co";
+    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJyaXJya3VzbmVrcGtjY2Vpb2VyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjgzNTQ3NDMsImV4cCI6MjA4MzkzMDc0M30.7vSEBCAAhnXMguY4So9ez5CwKR-tLKrEVuFW-_b_SNA";
+    // ▲▲ ここまで ▲▲
+
+    async function fetchApproved() {
+      const url =
+        `${SUPABASE_URL}/rest/v1/listings?select=*` +
+        `&status=eq.approved` +
+        `&order=created_at.desc`;
+
+      const res = await fetch(url, {
+        headers: {
+          apikey: SUPABASE_ANON_KEY,
+          Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+        },
+      });
+
+      if (!res.ok) throw new Error(await res.text());
+      return await res.json();
+    }
+
+    function render(items) {
+      const kind = document.getElementById("kind").value;
+      const q = document.getElementById("q").value.trim().toLowerCase();
+
+      const filtered = items.filter(it => {
+        if (kind !== "all" && it.kind !== kind) return false;
+        if (!q) return true;
+        const hay = [
+          it.title, it.body, it.spoon_name, it.skills, it.task, it.effort, it.reward
+        ].filter(Boolean).join(" ").toLowerCase();
+        return hay.includes(q);
+      });
+
+      const list = document.getElementById("list");
+      list.innerHTML = "";
+
+      if (filtered.length === 0) {
+        list.innerHTML = `<div class="muted">該当する投稿がありません。</div>`;
+        return;
+      }
+
+      for (const it of filtered) {
+        const tag = it.kind === "offer" ? "お手伝いできます" : "人を探しています";
+        const extra = it.kind === "offer"
+          ? (it.skills ? `<div class="meta"><span class="tag">できること</span><span>${escapeHtml(it.skills)}</span></div>` : "")
+          : (it.task ? `<div class="meta"><span class="tag">お願い内容</span><span>${escapeHtml(it.task)}</span></div>` : "");
+
+        const meta = `
+          <div class="meta">
+            <span class="tag">${tag}</span>
+            <span>🐣 ${escapeHtml(it.spoon_name)}</span>
+            ${it.effort ? `<span>⏱ ${escapeHtml(it.effort)}</span>` : ""}
+            ${it.reward ? `<span>🎁 ${escapeHtml(it.reward)}</span>` : ""}
+          </div>
+        `;
+
+        const card = document.createElement("div");
+        card.className = "card";
+        card.innerHTML = `
+          ${meta}
+          <div class="title">${escapeHtml(it.title)}</div>
+          ${extra}
+          <div class="body">${escapeHtml(it.body)}</div>
+          <div class="meta" style="margin-top:10px;">
+            <span class="tag">連絡</span><span>${escapeHtml(it.contact)}</span>
+          </div>
+        `;
+        list.appendChild(card);
+      }
+    }
+
+    function escapeHtml(str) {
+      return String(str)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+
+    (async () => {
+      const status = document.getElementById("status");
+      try {
+        const items = await fetchApproved();
+        status.textContent = `掲載中：${items.length} 件`;
+        render(items);
+
+        document.getElementById("kind").addEventListener("change", () => render(items));
+        document.getElementById("q").addEventListener("input", () => render(items));
+      } catch (e) {
+        console.error(e);
+        status.textContent = "読み込みに失敗しました（Supabase設定を確認してください）";
+      }
+    })();
+  </script>
+</body>
+</html>

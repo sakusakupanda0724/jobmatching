@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>掲載依頼を送る</title>
+  <style>
+    body { font-family: system-ui, -apple-system, sans-serif; margin: 0; background:#f6f7f8; color:#111; }
+    .wrap { max-width: 720px; margin: 0 auto; padding: 16px; }
+    .card { background:white; border:1px solid #e5e7eb; border-radius: 14px; padding: 14px; }
+    label { display:block; font-size: 13px; color:#333; margin: 12px 0 6px; }
+    input, textarea, select { width:100%; box-sizing:border-box; padding: 10px 12px; border:1px solid #ddd; border-radius: 10px; background:white; }
+    textarea { min-height: 120px; resize: vertical; }
+    .row { display:grid; grid-template-columns: 1fr; gap: 10px; }
+    @media (min-width: 680px){ .row { grid-template-columns: 1fr 1fr; } }
+    button { margin-top: 14px; padding: 12px 14px; border-radius: 10px; border: 1px solid #111; background:#111; color:white; cursor:pointer; }
+    .muted { color:#666; font-size: 13px; line-height: 1.5; }
+    .ok { color: #0a7; font-weight: 700; }
+    .ng { color: #c00; font-weight: 700; }
+    a { color:#111; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h2>掲載依頼を送る</h2>
+    <p class="muted">
+      送信された内容は管理人が確認後、掲示板に掲載します（すぐには公開されません）。<br>
+      「重い案件」「長期拘束」「法的に微妙なもの」は載せない方針にすると安全です。
+    </p>
+
+    <div class="card">
+      <form id="f">
+        <div class="row">
+          <div>
+            <label>区分</label>
+            <select name="kind" required>
+              <option value="offer">お手伝いできます（スキル）</option>
+              <option value="request">人を探しています（作業）</option>
+            </select>
+          </div>
+          <div>
+            <label>Spoon名（表示名）</label>
+            <input name="spoon_name" required placeholder="例：Pin / ひろえ など" />
+          </div>
+        </div>
+
+        <label>連絡方法（Spoon DMなど）</label>
+        <input name="contact" required placeholder="例：SpoonのDMでお願いします / X: @xxx など" />
+
+        <label>タイトル（短く）</label>
+        <input name="title" required maxlength="80" placeholder="例：配信の背景画像つくれます / 音源のノイズ除去お願いしたい" />
+
+        <div class="row">
+          <div>
+            <label>できること（offerの人）</label>
+            <input name="skills" placeholder="例：背景画像、サムネ、簡単な音源編集、配信マネージャー" />
+          </div>
+          <div>
+            <label>お願い内容（requestの人）</label>
+            <input name="task" placeholder="例：BGMのカット、背景画像作成、配信の企画補助" />
+          </div>
+        </div>
+
+        <div class="row">
+          <div>
+            <label>作業目安</label>
+            <input name="effort" placeholder="例：30分〜1時間 / 単発" />
+          </div>
+          <div>
+            <label>お礼の目安</label>
+            <input name="reward" placeholder="例：投げ銭相当 / 応相談" />
+          </div>
+        </div>
+
+        <label>本文（詳細：140〜500文字くらい推奨）</label>
+        <textarea name="body" required maxlength="800"
+          placeholder="例：どんな雰囲気の背景がほしい／どんな編集をしたい／できる範囲／希望納期など"></textarea>
+
+        <button type="submit">送信する（管理人に届きます）</button>
+        <p id="msg" class="muted"></p>
+        <p class="muted"><a href="./index.html">← 掲示板に戻る</a></p>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    // ▼▼ ここを自分のSupabase情報に置き換え ▼▼
+    const SUPABASE_URL = "https://brirrkusnekpkcceioer.supabase.co";
+    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJyaXJya3VzbmVrcGtjY2Vpb2VyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjgzNTQ3NDMsImV4cCI6MjA4MzkzMDc0M30.7vSEBCAAhnXMguY4So9ez5CwKR-tLKrEVuFW-_b_SNA";
+    // ▲▲ ここまで ▲▲
+
+    document.getElementById("f").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const msg = document.getElementById("msg");
+      msg.textContent = "送信中…";
+
+      const fd = new FormData(e.target);
+      const payload = Object.fromEntries(fd.entries());
+
+      // statusはRLSのwith checkで pending しか通らない
+      payload.status = "pending";
+
+      try {
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/listings`, {
+          method: "POST",
+          headers: {
+            apikey: SUPABASE_ANON_KEY,
+            Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+            "Content-Type": "application/json",
+            Prefer: "return=minimal"
+          },
+          body: JSON.stringify(payload),
+        });
+
+        if (!res.ok) throw new Error(await res.text());
+
+        msg.innerHTML = `<span class="ok">送信しました！</span> 管理人の確認後に掲載されます。`;
+        e.target.reset();
+      } catch (err) {
+        console.error(err);
+        msg.innerHTML = `<span class="ng">送信に失敗しました。</span> Supabase設定やRLSを確認してください。`;
+      }
+    });
+  </script>
+</body>
+</html>
